@@ -54,6 +54,42 @@ function getBundleAnalyzerPlugin(analyzeBundle, name) {
 }
 
 /**
+ * Builds the module rules for the preload script. It runs before the app bundle, in the same modern
+ * browsers the app requires, so the core-js polyfills babel injects for the app would only add
+ * weight to a script whose whole point is to be small and fast (51 KiB with them, 7 KiB without).
+ * Syntax is still transpiled for the configured targets; only polyfill injection is disabled. The
+ * flip side: the preload and the modules it imports must only use built-ins available on the
+ * supported browser floor, and nothing enforces that automatically.
+ *
+ * @param {Array} rules - The shared module rules.
+ * @returns {Array} The rules with polyfill injection disabled.
+ */
+function getPreloadRules(rules) {
+    return rules.map(rule => {
+        if (rule.loader !== 'babel-loader') {
+            return rule;
+        }
+
+        const [ [ presetEnv, presetEnvOptions ], ...otherPresets ] = rule.options.presets;
+        const { corejs, ...presetEnvOptionsWithoutPolyfills } = presetEnvOptions; // eslint-disable-line no-unused-vars
+
+        return {
+            ...rule,
+            options: {
+                ...rule.options,
+                presets: [
+                    [ presetEnv, {
+                        ...presetEnvOptionsWithoutPolyfills,
+                        useBuiltIns: false
+                    } ],
+                    ...otherPresets
+                ]
+            }
+        };
+    });
+}
+
+/**
  * Determines whether a specific (HTTP) request is to bypass the proxy of
  * webpack-dev-server (i.e. is to be handled by the proxy target) and, if not,
  * which local file is to be served in response to the request.
@@ -358,6 +394,19 @@ module.exports = (_env, argv) => {
                 ...getBundleAnalyzerPlugin(analyzeBundle, 'alwaysontop')
             ],
             performance: getPerformanceHints(perfHintOptions, 800 * 1024) },
+
+        // The load-test client used by Malleus (tests/malleus). Not part of the application: it is built only by
+        // `npm run build:load-test` (BUILD_LOAD_TEST=true) and injected into the browsers by the load tester.
+        ...process.env.BUILD_LOAD_TEST ? [ { ...config,
+            name: 'load-test',
+            entry: {
+                'load-test-participant': './react/features/load-test/loadTestParticipant.ts'
+            },
+            plugins: [
+                ...config.plugins,
+                ...getBundleAnalyzerPlugin(analyzeBundle, 'load-test-participant')
+            ],
+            performance: getPerformanceHints(perfHintOptions, 400 * 1024) } ] : [],
         { ...config,
             entry: {
                 'documentpip': './react/features/always-on-top/document-pip-index.tsx'
@@ -389,6 +438,17 @@ module.exports = (_env, argv) => {
                 ...getBundleAnalyzerPlugin(analyzeBundle, 'external_api')
             ],
             performance: getPerformanceHints(perfHintOptions, 100 * 1024) },
+        { ...config,
+            entry: {
+                'preload': './react/features/preload/preload.web.ts'
+            },
+            module: { ...config.module,
+                rules: getPreloadRules(config.module.rules) },
+            plugins: [
+                ...config.plugins,
+                ...getBundleAnalyzerPlugin(analyzeBundle, 'preload')
+            ],
+            performance: getPerformanceHints(perfHintOptions, 30 * 1024) },
         { ...config,
             entry: {
                 'face-landmarks-worker': './react/features/face-landmarks/faceLandmarksWorker.ts'
