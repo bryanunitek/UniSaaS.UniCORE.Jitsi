@@ -27,8 +27,13 @@ endif
 
 all: compile deploy
 
-compile: clean
-	NODE_OPTIONS=--max-old-space-size=8192 \
+# Type checking is done once here rather than inside ts-loader, which would repeat
+# it for every bundle (see webpack.config.js).
+typecheck:
+	npm run tsc:web
+
+compile: clean typecheck
+	NODE_OPTIONS=--max-old-space-size=4096 \
 	$(WEBPACK)
 
 clean:
