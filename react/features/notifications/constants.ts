@@ -57,6 +57,20 @@ export const NOTIFICATION_ICON = {
 };
 
 /**
+ * The identifier of the notification shown when the audio output device could not be switched.
+ *
+ * @type {string}
+ */
+export const AUDIO_OUTPUT_NOTIFICATION_ID = 'AUDIO_OUTPUT_NOTIFICATION_ID';
+
+/**
+ * The identifier of the notification shown while the browser blocks remote audio playback.
+ *
+ * @type {string}
+ */
+export const AUDIO_PLAYBACK_BLOCKED_NOTIFICATION_ID = 'AUDIO_PLAYBACK_BLOCKED_NOTIFICATION_ID';
+
+/**
  * The identifier of the calendar notification.
  *
  * @type {string}
